@@ -109,15 +109,14 @@ public class Hit extends AbstractHit {
      */
     @Override
     public String toString() {
-        //命中词高亮
+        // 命中词高亮
         String contentHighlight = content;
-        for(AbstractTerm key : this.termPostingMapping.keySet()){
-            String regex = key.getContent();
-            contentHighlight = contentHighlight.replaceAll(regex, "\033[32m" + regex + "\033[0m");
+        for (AbstractTerm key : this.termPostingMapping.keySet()) {
+            String regex = "(?i)" + key.getContent(); // 添加 (?i) 表示不区分大小写
+            contentHighlight = contentHighlight.replaceAll(regex, "\033[32m" + key.getContent() + "\033[0m");
         }
-
-
-        return "\ndocPath:" + this.docPath + "\ncontent:" + contentHighlight + "\npost:" + this.termPostingMapping.values();
+    
+        return "docPath:" + this.docPath + "\ncontent:" + '\n' + contentHighlight + "\npost:" + this.termPostingMapping.values() + "\n";
     }
 
     /**

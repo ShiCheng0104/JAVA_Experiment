@@ -2,22 +2,18 @@ package hust.cs.javacourse.search.query.impl;
 
 import hust.cs.javacourse.search.index.AbstractPosting;
 import hust.cs.javacourse.search.index.AbstractTerm;
+
 import hust.cs.javacourse.search.query.AbstractHit;
 import hust.cs.javacourse.search.query.Sort;
 
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
 public class SimpleSorter implements Sort {
-    /**
-     * 对命中结果集合根据文档得分排序
-     *
-     * @param hits ：命中结果集合
-     */
+    //list中存的是一系列命中文档对应的HIT，每个hit中存储对应的单词命中信息map<term,posting>
     @Override
-    public void sort(List<AbstractHit> hits) {
-        Collections.sort(hits);
+    public void sort(List<AbstractHit> hits){
+        hits.sort((AbstractHit o1,AbstractHit o2) -> ((int)(score(o2)-score(o1))));
     }
 
     /**
@@ -31,14 +27,14 @@ public class SimpleSorter implements Sort {
      * @return ：命中文档的得分
      * </pre>
      */
+
+
     @Override
     public double score(AbstractHit hit) {
-        Map<AbstractTerm, AbstractPosting> map= hit.getTermPostingMapping();
-        double docScore = 0;
-        for(AbstractPosting posting: map.values()){
-            //将分数都设置为负数，由此排序时便会得到得分绝对值由大到小排序
-            docScore -= posting.getFreq();
+        double ans=0.0;
+        for(Map.Entry<AbstractTerm, AbstractPosting> entry:hit.getTermPostingMapping().entrySet()){
+            ans+=entry.getValue().getFreq();
         }
-        return docScore;
+        return ans;
     }
 }

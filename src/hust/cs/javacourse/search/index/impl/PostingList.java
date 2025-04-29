@@ -27,7 +27,7 @@ public class PostingList extends AbstractPostingList {
      */
     @Override
     public String toString() {
-        return this.list.toString();
+        return this.list.toString()+"\n";
     }
 
     /**

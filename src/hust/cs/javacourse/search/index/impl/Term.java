@@ -5,7 +5,6 @@ import hust.cs.javacourse.search.index.AbstractTerm;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
-import java.util.Locale;
 
 public class Term extends AbstractTerm {
     /**
