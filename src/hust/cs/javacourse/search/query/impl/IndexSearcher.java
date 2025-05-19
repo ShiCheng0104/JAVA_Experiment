@@ -3,17 +3,19 @@ package hust.cs.javacourse.search.query.impl;
 import hust.cs.javacourse.search.index.AbstractPosting;
 import hust.cs.javacourse.search.index.AbstractPostingList;
 import hust.cs.javacourse.search.index.AbstractTerm;
-import hust.cs.javacourse.search.index.impl.PostingList;
+import hust.cs.javacourse.search.index.impl.Posting;
+import hust.cs.javacourse.search.index.impl.Term;
 import hust.cs.javacourse.search.query.AbstractHit;
 import hust.cs.javacourse.search.query.AbstractIndexSearcher;
 import hust.cs.javacourse.search.query.Sort;
 
 import java.io.File;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
+/**
+ * 抽象类AbstractIndexSearcher的子类
+ * 实现功能：检索具体实现
+ */
 public class IndexSearcher extends AbstractIndexSearcher {
     /**
      * 从指定索引文件打开索引，加载到index对象里. 一定要先打开索引，才能执行search方法
@@ -22,8 +24,8 @@ public class IndexSearcher extends AbstractIndexSearcher {
      */
     @Override
     public void open(String indexFile) {
-        this.index.load(new File(indexFile));
-        this.index.optimize();
+        index.load(new File(indexFile));
+        index.optimize();
     }
 
     /**
@@ -35,20 +37,26 @@ public class IndexSearcher extends AbstractIndexSearcher {
      */
     @Override
     public AbstractHit[] search(AbstractTerm queryTerm, Sort sorter) {
-        AbstractPostingList postList=index.search(queryTerm);
-        if(postList==null) return new AbstractHit[0];
-        List<AbstractHit> hitList= new ArrayList<>();
-        for(int i=0;i<postList.size();i++){
-            AbstractPosting post=postList.get(i);
-            Map<AbstractTerm,AbstractPosting> map= new HashMap<>();
-            map.put(queryTerm,post);
-            AbstractHit hit=new Hit(post.getDocId(),index.getDocName(post.getDocId()),map);
-            hit.setScore(sorter.score(hit));
-            hitList.add(hit);
+        AbstractPostingList plist = this.index.search(queryTerm);
+        if (plist != null) {
+            Map<AbstractTerm, AbstractPosting> termPostingMapping = new HashMap<>();
+            AbstractHit[] hits = new AbstractHit[plist.size()];     //plist.size()是存在单词queryTerm的文档数目
+            for (int i = 0; i < plist.size(); i++) {
+                AbstractPosting posting = plist.get(i);
+                termPostingMapping.put(queryTerm, posting);
+                hits[i] = new Hit(posting.getDocId(), this.index.getDocName(posting.getDocId()), termPostingMapping);       // 这里传文件名即可，不然会找不到文件，详情参见fileUtil中的read方法
+                hits[i].setScore(sorter.score(hits[i]));
+                termPostingMapping.clear();
+            }
+            sorter.sort(Arrays.asList(hits));   //根据得分从高到低排序
+            return hits;
+        } else {
+            return null;
         }
-        sorter.sort(hitList);
-        return hitList.toArray(new AbstractHit[0]);
+
     }
+
+
 
     /**
      * 根据二个检索词进行搜索
@@ -59,78 +67,124 @@ public class IndexSearcher extends AbstractIndexSearcher {
      * @param combine    ：   多个检索词的逻辑组合方式
      * @return ：命中结果数组
      */
-    @Override
     public AbstractHit[] search(AbstractTerm queryTerm1, AbstractTerm queryTerm2, Sort sorter, LogicalCombination combine) {
-        AbstractPostingList postingList1=index.search(queryTerm1);
-        AbstractPostingList postingList2=index.search(queryTerm2);
-        List<AbstractHit> hitList=new ArrayList<>();
-
-        //任意一个检索词出现在命中文档
-        if(combine==LogicalCombination.OR){
-            int i=0,j=0;
-            while(i<postingList1.size()&&j<postingList2.size()){
-                AbstractPosting posting1=postingList1.get(i);
-                AbstractPosting posting2=postingList2.get(j);
-                AbstractPosting post;
-                Map<AbstractTerm,AbstractPosting> map=new HashMap<>();
-
-                //当两个文档相同时，将两个检索词和对应文档都加入到命中文档
-                if(posting1.getDocId()==posting2.getDocId()){
-                    post=posting1;
-                    map.put(queryTerm1,posting1);
-                    map.put(queryTerm2,posting2);
-                    i++;
-                    j++;
+        AbstractPostingList plist1 = this.index.search(queryTerm1);
+        AbstractPostingList plist2 = this.index.search(queryTerm2);
+        Map<AbstractTerm, AbstractPosting> termPostingMapping = new HashMap<>();
+        ArrayList<AbstractHit> hits = new ArrayList<>();
+        switch (combine) {
+            case OR:
+                if (plist1 != null) {       //将单词queryTerm1的命中信息加入hits
+                    for (int i = 0; i < plist1.size(); i++) {
+                        AbstractPosting posting = plist1.get(i);
+                        termPostingMapping.put(queryTerm1, posting);
+                        hits.add(new Hit(posting.getDocId(), this.index.getDocName(posting.getDocId()), termPostingMapping));     // 这里传文件名即可，不然会找不到文件，详情参见fileUtil中的read方法
+                        hits.get(i).setScore(sorter.score(hits.get(i)));
+                        termPostingMapping.clear();
+                    }
                 }
-
-                //将文档ID小的那个先加入
-                else if(posting1.getDocId()<posting2.getDocId()){
-                    post=posting1;
-                    map.put(queryTerm1,posting1);
-                    i++;
+                if (plist2 != null) {
+                    for (int i = 0; i < plist2.size(); i++) {
+                        int flag = 0;
+                        AbstractPosting posting = plist2.get(i);
+                        for (int j = 0; j < hits.size(); j++) {
+                            AbstractHit item = hits.get(j);
+                            if (item.getDocId() == posting.getDocId()) {        //单词1和单词2所在的文档相同
+                                item.getTermPostingMapping().put(queryTerm2, posting);
+                                item.setScore(sorter.score(item));
+                                flag = 1;
+                            }
+                        }
+                        if (flag == 0) {
+                            termPostingMapping.put(queryTerm2, posting);
+                            hits.add(new Hit(posting.getDocId(), this.index.getDocName(posting.getDocId()), termPostingMapping));       //单词1和单词2所在文档不相同，则加入hits
+                            hits.get(hits.size()-1).setScore(sorter.score(hits.get(hits.size()-1)));
+                            termPostingMapping.clear();
+                        }
+                    }
                 }
-                else{
-                    post=posting2;
-                    map.put(queryTerm2,posting2);
-                    j++;
+                break;
+            case AND:
+                if (plist1 != null && plist2 != null) {
+                    for (int i = 0; i < plist1.size(); i++) {
+                        AbstractPosting posting = plist1.get(i);
+                        for (int j = 0; j < plist2.size(); j++) {
+                            AbstractPosting posting1 = plist2.get(j);
+                            if (posting.getDocId() == posting1.getDocId()) {    //两个单词所在文档相同，才加入hits
+                                termPostingMapping.put(queryTerm1, posting);
+                                termPostingMapping.put(queryTerm2, posting1);
+                                hits.add(new Hit(posting.getDocId(), this.index.getDocName(posting.getDocId()), termPostingMapping));
+                                hits.get(i).setScore(sorter.score(hits.get(i)));
+                                termPostingMapping.clear();
+                            }
+                        }
+                    }
                 }
-                AbstractHit hit=new Hit(post.getDocId(),index.getDocName(post.getDocId()),map);
-                hit.setScore(sorter.score(hit));
-                hitList.add(hit);
-            }
-
-            //将余下的文档加入到命中文档
-            while(i<postingList1.size()){
-                AbstractPosting post=postingList1.get(i);
-                Map<AbstractTerm,AbstractPosting> map=new HashMap<>();
-                map.put(queryTerm1,post);
-                AbstractHit hit=new Hit(post.getDocId(),index.getDocName(post.getDocId()),map);
-                hit.setScore(sorter.score(hit));
-                hitList.add(hit);
-            }
+                break;
         }
 
-        //两个检索词都必须同时出现在文档中
-        else{
-            int i=0,j=0;
-            while(i<postingList1.size()&&j<postingList2.size()){
-                AbstractPosting posting1=postingList1.get(i);
-                AbstractPosting posting2=postingList2.get(j);
-                if(posting1.getDocId()==posting2.getDocId()){
-                    Map<AbstractTerm,AbstractPosting> map=new HashMap<>();
-                    map.put(queryTerm1,posting1);
-                    map.put(queryTerm2,posting2);
-                    AbstractHit hit=new Hit(posting1.getDocId(),index.getDocName(posting1.getDocId()),map);
-                    hit.setScore(sorter.score(hit));
-                    hitList.add(hit);
-                    i++;
-                    j++;
+        sorter.sort(hits);
+        return hits.toArray(new AbstractHit[hits.size()]);
+    }
+
+
+
+
+    /**
+     * 查询两个在文中相邻出现的单词（进阶功能）
+     * @param queryTerm1 ：第一个单词
+     * @param queryTerm2 ：第二个单词
+     * @param sorter ：排序器
+     * @return ：查询结果数组
+     */
+    public AbstractHit[] search(AbstractTerm queryTerm1, AbstractTerm queryTerm2, Sort sorter) {
+        AbstractPostingList postList1 = index.search(queryTerm1);
+        AbstractPostingList postList2 = index.search(queryTerm2);
+        if(postList1 == null || postList2 == null) return null;
+        List<AbstractHit> hitArray = new ArrayList<AbstractHit>();
+        int i=0, j=0;
+        while(i < postList1.size() && j < postList2.size()) {
+            AbstractPosting post1 = postList1.get(i);
+            AbstractPosting post2 = postList2.get(j);
+            // 这里默认索引中的数据都是按文档ID从小到大排序了
+            if (post1.getDocId() == post2.getDocId()) {
+                List<Integer> pos1 = post1.getPositions();
+                List<Integer> pos2 = post2.getPositions();
+                int a = 0, b = 0;
+                List<Integer> positions = new ArrayList<Integer>();     // 存放连续两个单词出现的位置
+                while(a < pos1.size() && b < pos2.size()){
+                    int p1 = pos1.get(a);
+                    int p2 = pos2.get(b);
+                    if(p1 == p2-1){
+                        positions.add(p1);
+                        a++;    b++;
+                    } else if(p1 < p2-1){
+                        a++;
+                    } else {
+                        b++;
+                    }
                 }
-                else if(posting1.getDocId()<posting2.getDocId()) i++;
-                else j++;
+                if(positions.size() > 0) {      // 否则会出现score = 0.0的情况
+                    String path = index.getDocName(post1.getDocId());
+                    Map<AbstractTerm, AbstractPosting> mp =
+                            new HashMap<AbstractTerm, AbstractPosting>();
+                    // 把两个单词合并放入映射表中，中间用一个空格隔开，位置则使用两个单词中第一个单词所在的位置
+                    // 这样在高亮显示的时候就可以了（要注意把空格替换成\\s，以避免原文中相邻单词直接有多个空格的情况）
+                    mp.put(new Term(queryTerm1.getContent() + " " + queryTerm2.getContent()),
+                            new Posting(post1.getDocId(), positions.size(), positions));
+                    AbstractHit h = new Hit(post1.getDocId(), path, mp);
+                    h.setScore(sorter.score(h));        // 先设置分数
+                    hitArray.add(h);
+                }
+                i++;    j++;
+            } else if (post1.getDocId() < post2.getDocId()) {
+                i++;
+            } else {        // post1 > post2
+                j++;
             }
         }
-        sorter.sort(hitList);
-        return hitList.toArray(new AbstractHit[0]);
+        if(hitArray.size() < 1) return null;
+        new SimpleSorter().sort(hitArray);
+        return (AbstractHit[]) hitArray.toArray(new Hit[0]);
     }
 }

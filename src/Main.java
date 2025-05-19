@@ -1,15 +1,38 @@
-//TIP 要<b>运行</b>代码，请按 <shortcut actionId="Run"/> 或
-// 点击装订区域中的 <icon src="AllIcons.Actions.Execute"/> 图标。
+import java.util.Scanner;
+import hust.cs.javacourse.search.run.*;
 public class Main {
     public static void main(String[] args) {
-        //TIP 当文本光标位于高亮显示的文本处时按 <shortcut actionId="ShowIntentionActions"/>
-        // 查看 IntelliJ IDEA 建议如何修正。
-        System.out.printf("Hello and welcome!");
+        
+        int flag = 0;
+        Scanner sc = new Scanner(System.in);
+        while(true)
+        {
+            
+            System.out.println("这是一个基于内存的搜索引擎");
+            System.out.println("输入1:进行倒排索引的构造");
+            System.out.println("输入2:进行搜索功能");
+            System.out.println("输入0:退出程序");
+            System.out.print("请输入你的选择: ");
+            flag = sc.nextInt();
 
-        for (int i = 1; i <= 5; i++) {
-            //TIP 按 <shortcut actionId="Debug"/> 开始调试代码。我们已经设置了一个 <icon src="AllIcons.Debugger.Db_set_breakpoint"/> 断点
-            // 但您始终可以通过按 <shortcut actionId="ToggleLineBreakpoint"/> 添加更多断点。
-            System.out.println("i = " + i);
+            if(flag == 1)
+            {
+                TestBuildIndex.main(args);
+            }
+            else if(flag == 2)
+            {
+                TestSearchIndex.main(args);
+            }
+            else if(flag == 0)
+            {
+                System.out.println("退出程序");
+                break;
+            }
+            else
+            {
+                System.out.println("输入错误，请重新输入");
+            }
         }
+        sc.close();
     }
 }
