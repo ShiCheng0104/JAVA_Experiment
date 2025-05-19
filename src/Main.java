@@ -1,26 +1,48 @@
-package hust.cs.javacourse.search.run;
+package hust.cs.javacourse.search;
 
-import hust.cs.javacourse.search.index.impl.Term;
+import hust.cs.javacourse.search.index.*;
+import hust.cs.javacourse.search.index.impl.*;
 import hust.cs.javacourse.search.query.AbstractHit;
 import hust.cs.javacourse.search.query.AbstractIndexSearcher;
 import hust.cs.javacourse.search.query.Sort;
 import hust.cs.javacourse.search.query.impl.IndexSearcher;
 import hust.cs.javacourse.search.query.impl.SimpleSorter;
-import hust.cs.javacourse.search.util.Config;
-import hust.cs.javacourse.search.util.StopWords;
-import hust.cs.javacourse.search.util.StringSplitter;
+import hust.cs.javacourse.search.util.*;
+import java.io.File;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Scanner;
-import java.util.Arrays;
-/**
- * 测试搜索
- */
-public class TestSearchIndex {
-    /**
-     *  搜索程序入口
-     * @param args ：命令行参数
-     */
-    public static void main(String[] args){
+public class Main {
+    
+    public static void main(String[] args) {
+
+        System.out.println("这是一个搜索引擎的索引构建和查询程序");
+        int flag = 0;
+        System.out.println("索引构建和查询程序:");
+        System.out.println("1. 构建索引并打印");
+        System.out.println("2. 查询索引");
+        System.out.println("请输入您的选择（1或2）：");
+        Scanner scanner = new Scanner(System.in);
+        flag = scanner.nextInt();
+
+        if(flag == 1){
+        AbstractDocumentBuilder documentBuilder = new DocumentBuilder();
+        AbstractIndexBuilder indexBuilder = new IndexBuilder(documentBuilder);
+        String rootDir = Config.DOC_DIR;
+        System.out.println("Start build index ...");
+        AbstractIndex index = indexBuilder.buildIndex(rootDir);
+        index.optimize();
+        System.out.println(index); //控制台打印 index 的内容
+        //测试保存到文件
+        String indexFile1 = Config.INDEX_DIR + "index.dat";
+        index.save(new File(indexFile1)); //索引保存到文件
+        //测试从文件读取
+        AbstractIndex index2 = new Index(); //创建一个空的 index
+        index2.load(new File(indexFile1)); //从文件加载对象的内容
+        System.out.println("\n-------------------\n");
+        }
+
+        else if(flag == 2){
         Sort simpleSorter = new SimpleSorter();
         String indexFile = Config.INDEX_DIR + "index.dat";
         AbstractIndexSearcher searcher = new IndexSearcher();
@@ -64,8 +86,8 @@ public class TestSearchIndex {
                     continue;
                 }
                 found = true;
-                System.out.println("\n文档ID: " + hit.getDocId());
-                System.out.println("文档得分: " + hit.getScore()); // 输出文档得分
+                System.out.println("\ndocID: " + hit.getDocId());
+                System.out.println("doc scores: " + hit.getScore()); // 输出文档得分
                 System.out.println(hit);
             }
         
@@ -75,6 +97,12 @@ public class TestSearchIndex {
             System.out.println("查询结束，请输入下一个查询词，或输入 'a' 退出：");
             word = input.nextLine();
     }
-}
+
+    }
+    else {
+        System.out.println("输入错误，请输入1或2");
+        }
+    }
+
 }
 
